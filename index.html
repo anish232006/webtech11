@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuickBite Orders – EXP 11 URK24CS1092</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#fff7f0;color:#2b1d14;padding-bottom:70px}
+header{background:linear-gradient(90deg,#e8590c,#f59f00);color:#fff;text-align:center;padding:16px 8px}
+header h1{margin:0;font-size:1.3rem}header p{margin:4px 0 0;font-size:.8rem}
+main{max-width:820px;margin:12px auto;padding:0 10px}
+.card{background:#fff;border:1px solid #f0dccd;border-radius:10px;padding:12px;margin-bottom:12px}
+h2{margin:0 0 8px;font-size:1.05rem;color:#e8590c}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+label{font-size:.7rem;color:#8a7566;display:flex;flex-direction:column;gap:2px}
+input,select{padding:7px;border:1px solid #f0dccd;border-radius:6px;width:115px;background:#fff7f0;color:#2b1d14}
+button{padding:7px 11px;border:0;border-radius:6px;color:#fff;cursor:pointer;background:#e8590c;font-size:.8rem}
+.g{background:#2f9e44}.r{background:#e03131}.bl{background:#1c7ed6}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.item{background:#fff;border:1px solid #f0dccd;border-top:3px solid #e8590c;border-radius:8px;padding:10px;font-size:.85rem}
+.item h3{margin:0 0 4px;font-size:.95rem;display:flex;justify-content:space-between}
+.tag{background:#f0dccd;border-radius:10px;padding:1px 8px;font-size:.7rem}
+.st{font-weight:bold;color:#e8590c}.st.d{color:#2f9e44}
+.msg{font-size:.8rem;color:#8a7566;margin:6px 0}.item .row{margin-top:6px}
+#term{position:fixed;left:0;right:0;bottom:0;background:#0b1220;color:#7ee787;font:12px monospace;padding:8px 10px;max-height:80px;overflow:auto}
+#term i{color:#79c0ff;font-style:normal}
+footer{text-align:center;font-size:.7rem;color:#8a7566;margin:10px}
+</style></head><body>
+<header><h1>🍔 QuickBite Orders – Node.js + MongoDB</h1><p>CRUD operations on the orders collection of QuickBiteDB · URK24CS1092</p></header>
+<main>
+<div class="card"><h2>Place an Order – insertOne()</h2><div class="row">
+<label>Item<input id="i"></label><label>Customer<input id="c"></label>
+<label>Category<select id="k"><option>Rice</option><option>Pizza</option><option>Burger</option><option>Wrap</option></select></label>
+<label>Qty<input id="q" type="number" value="1"></label><label>Price (₹)<input id="p" type="number" value="150"></label>
+<button class="g" onclick="add()">Place order</button><button class="bl" onclick="many()">Insert 3 sample (insertMany)</button></div></div>
+<div class="card"><h2>Find Orders – find()</h2><div class="row">
+<label>Category<select id="f"><option value="">All</option><option>Rice</option><option>Pizza</option><option>Burger</option><option>Wrap</option></select></label>
+<button class="g" onclick="load()">Find</button></div><div class="msg" id="n"></div></div>
+<div class="grid" id="g"></div></main>
+<footer>QuickBite · Ex. 11 WTL · URK24CS1092 · <span id="mode"></span></footer>
+<div id="term"><i>QuickBiteDB&gt;</i> use QuickBiteDB<br><i>QuickBiteDB&gt;</i> <span id="cmd">db.orders.find({})</span></div>
+<script>
+var local=null,seq=1,cat="";
+var E=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+function cmd(s){document.getElementById("cmd").textContent=s}
+function v(id){return document.getElementById(id).value}
+async function api(m,u,b){
+ if(local){return localApi(m,u,b)}
+ var r=await fetch(u,{method:m,headers:{"Content-Type":"application/json"},body:b?JSON.stringify(b):undefined});
+ if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
+function localApi(m,u,b){
+ var id=(u.match(/orders\/([^?\/]+)$/)||[])[1];
+ if(m=="GET"){var c=(u.split("category=")[1]||"");c=decodeURIComponent(c);return local.filter(function(o){return !c||o.category==c})}
+ if(m=="POST"&&u.indexOf("many")>-1){b.forEach(function(o){local.push(Object.assign({_id:"o"+(seq++),status:"Preparing"},o))});return{insertedCount:b.length}}
+ if(m=="POST"){local.push(Object.assign({_id:"o"+(seq++),status:"Preparing"},b,{qty:+b.qty,price:+b.price}));return{insertedId:"o"+(seq-1)}}
+ if(m=="PUT"){local.forEach(function(o){if(o._id==id)o.status=b.status});return{modifiedCount:1}}
+ local=local.filter(function(o){return o._id!=id});return{deletedCount:1}}
+async function load(){cat=v("f");
+ var l=await api("GET","api/orders"+(cat?"?category="+encodeURIComponent(cat):""));
+ cmd("db.orders.find("+(cat?'{category: "'+cat+'"}':"{}")+").toArray()");
+ document.getElementById("n").textContent=l.length+" order(s) found";
+ document.getElementById("g").innerHTML=l.map(function(o){var id=E(o._id);return'<div class="item"><h3>'+E(o.item)+'<span>₹'+E(o.price*o.qty)+'</span></h3><span class="tag">'+E(o.category)+'</span><div class="msg">'+E(o.customer)+' · Qty '+E(o.qty)+'</div><div class="st '+(o.status=="Delivered"?"d":"")+'">'+E(o.status)+'</div><div class="row"><button class="bl" onclick="upd(\''+id+'\')">Mark delivered</button><button class="r" onclick="del(\''+id+'\')">Cancel</button></div></div>'}).join("")}
+async function add(){if(!v("i")){alert("Enter an item");return}
+ var d={item:v("i"),customer:v("c")||"Guest",category:v("k"),qty:v("q"),price:v("p")};
+ var r=await api("POST","api/orders",d);
+ await load();cmd('db.orders.insertOne({item: "'+d.item+'", customer: "'+d.customer+'", category: "'+d.category+'", qty: '+d.qty+', price: '+d.price+'}) // insertedId: '+r.insertedId)}
+async function many(){var d=[{item:"Paneer Wrap",customer:"Priya",category:"Wrap",qty:2,price:180},{item:"Party Pizza XL",customer:"Kumar",category:"Pizza",qty:1,price:2200},{item:"Cheese Pizza",customer:"Divya",category:"Pizza",qty:2,price:350}];
+ var r=await api("POST","api/orders/many",d);await load();cmd("db.orders.insertMany([3 orders]) // insertedCount: "+r.insertedCount)}
+async function upd(id){var r=await api("PUT","api/orders/"+id,{status:"Delivered"});await load();cmd('db.orders.updateOne({_id: ObjectId("'+id+'")}, {$set: {status: "Delivered"}}) // modifiedCount: '+r.modifiedCount)}
+async function del(id){var r=await api("DELETE","api/orders/"+id);await load();cmd('db.orders.deleteOne({_id: ObjectId("'+id+'")}) // deletedCount: '+r.deletedCount)}
+(async function(){
+ try{var r=await fetch("api/orders");if(!r.ok)throw 0;await r.json();document.getElementById("mode").textContent="Connected to MongoDB server"}
+ catch(e){local=[{_id:"o"+(seq++),item:"Chicken Biryani",customer:"Arun",category:"Rice",qty:2,price:250,status:"Delivered"},{_id:"o"+(seq++),item:"Margherita Pizza",customer:"Divya",category:"Pizza",qty:1,price:499,status:"Preparing"},{_id:"o"+(seq++),item:"Veg Burger",customer:"Ravi",category:"Burger",qty:3,price:120,status:"On the way"}];
+ document.getElementById("mode").textContent="In-browser collection (GitHub Pages demo)"}
+ load()})();
+</script></body></html>
